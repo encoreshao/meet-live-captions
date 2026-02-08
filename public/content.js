@@ -620,6 +620,101 @@
   }
 
   // ============================================
+  // Meeting-end detection
+  //
+  // Three signals that the user left the meeting:
+  //   1. The page shows "You left the meeting" / end-screen text
+  //   2. The URL no longer matches the meeting pattern
+  //   3. The page is unloading (tab close / navigation)
+  //
+  // IMPORTANT: We require multiple consecutive "not active" checks
+  // (CONFIRM_THRESHOLD) before declaring meeting ended, to avoid
+  // false positives from momentary DOM changes during an active call.
+  //
+  // We intentionally do NOT kill the MutationObserver or poll timers
+  // when the meeting ends — the content script keeps running so that
+  // if the detection was wrong, captions still work. The side panel
+  // handles the UI (freeze timer, stop indicator).
+  // ============================================
+  let meetingEndTimer = null;
+  let hasSentEnded = false;
+  let notActiveCount = 0;
+  const CONFIRM_THRESHOLD = 3; // Must fail 3 consecutive checks (≈9 seconds)
+
+  function sendMeetingEnded() {
+    if (hasSentEnded) return;
+    hasSentEnded = true;
+
+    log("Meeting ended — notifying background");
+    try {
+      chrome.runtime.sendMessage({
+        type: "MEETING_ENDED",
+        meetingId: meetingId,
+        endTime: Date.now(),
+      });
+    } catch (e) {}
+
+    // Stop the end-detection timer (no need to keep checking)
+    if (meetingEndTimer) {
+      clearInterval(meetingEndTimer);
+      meetingEndTimer = null;
+    }
+
+    // NOTE: We do NOT stop the caption observer or poll timers here.
+    // The content script keeps running so captions still work if
+    // this was a false positive. The background/side-panel handle
+    // the timer freeze.
+  }
+
+  function isMeetingActive() {
+    // Signal 1: URL must still match the meeting pattern /abc-defg-hij
+    const meetPattern = /\/[a-z]{3}-[a-z]{4}-[a-z]{3}/;
+    if (!meetPattern.test(window.location.pathname)) {
+      log("Meeting URL pattern gone — left meeting");
+      return false;
+    }
+
+    // Signal 2: "You left" / end-screen text
+    // Only check specific containers to avoid false matches from
+    // chat messages or shared content. Google Meet shows the end
+    // screen in a full-page overlay.
+    const bodyText = document.body.innerText || "";
+    const endPhrases = [
+      "You left the meeting",
+      "You've left the meeting",
+      "The meeting has ended",
+      "You were removed from the meeting",
+      "Return to home screen",
+    ];
+    for (const phrase of endPhrases) {
+      if (bodyText.includes(phrase)) {
+        log(`End-screen text detected: "${phrase}"`);
+        return false;
+      }
+    }
+
+    // If none of the above triggered, the meeting is active
+    return true;
+  }
+
+  function startMeetingEndDetection() {
+    if (meetingEndTimer) return;
+
+    meetingEndTimer = setInterval(() => {
+      if (!isMeetingActive()) {
+        notActiveCount++;
+        log(`Meeting not active (${notActiveCount}/${CONFIRM_THRESHOLD})`);
+        if (notActiveCount >= CONFIRM_THRESHOLD) {
+          sendMeetingEnded();
+        }
+      } else {
+        // Reset counter — meeting is alive
+        notActiveCount = 0;
+      }
+    }, 3000); // Check every 3 seconds
+  }
+
+  // ============================================
   // Message handler
   // ============================================
   chrome.runtime.onMessage.addListener((msg) => {
@@ -648,6 +743,12 @@
 
     startAvatarScanning();
     waitForCaptions();
+    startMeetingEndDetection();
+
+    // Detect page unload (tab close / navigation away)
+    window.addEventListener("beforeunload", () => {
+      sendMeetingEnded();
+    });
   }
 
   if (document.readyState === "complete") {

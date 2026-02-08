@@ -4,22 +4,73 @@
 // They are only cleared when the user explicitly clicks "Clear All".
 // To avoid captionId collisions between meetings, each caption gets a
 // composite ID: `meetingId_originalCaptionId`.
+//
+// MEETING END DETECTION:
+// Three layers detect when the user leaves a meeting:
+//   1. Content script: DOM-based (toolbar gone, "You left" page, beforeunload)
+//   2. Background (here): Tab closed or URL changed away from meeting pattern
+//   3. Both send MEETING_ENDED → side panel freezes the timer
+//
+// We track which tab is the active meeting tab so we can detect closure.
+
+// Track the active meeting tab
+let meetingTabId = null;
+
+// Meeting URL pattern: /abc-defg-hij
+const MEETING_URL_RE = /meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/;
 
 // Open side panel when extension icon is clicked
 chrome.action.onClicked.addListener(async (tab) => {
   await chrome.sidePanel.open({ tabId: tab.id });
 });
 
-// Enable side panel on Google Meet tabs
+// Enable side panel on Google Meet tabs + detect URL changes away from meeting
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (tab.url && tab.url.includes("meet.google.com")) {
+  if (!tab.url) return;
+
+  if (tab.url.includes("meet.google.com")) {
     await chrome.sidePanel.setOptions({
       tabId,
       path: "sidepanel.html",
       enabled: true,
     });
+
+    // Track the meeting tab when it has a meeting URL
+    if (MEETING_URL_RE.test(tab.url)) {
+      meetingTabId = tabId;
+    }
+  }
+
+  // Detect when the meeting tab navigates AWAY from a meeting URL
+  // (e.g. user leaves → redirected to meet.google.com landing page)
+  if (changeInfo.url && tabId === meetingTabId) {
+    if (!MEETING_URL_RE.test(changeInfo.url)) {
+      broadcastMeetingEnded();
+      meetingTabId = null;
+    }
   }
 });
+
+// Detect when the meeting tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === meetingTabId) {
+    broadcastMeetingEnded();
+    meetingTabId = null;
+  }
+});
+
+function broadcastMeetingEnded() {
+  const endTime = Date.now();
+
+  // Persist endTime in storage so side panel can restore frozen timer
+  chrome.storage.session.set({ endTime });
+
+  // Notify side panel
+  chrome.runtime.sendMessage({
+    type: "MEETING_ENDED",
+    endTime,
+  }).catch(() => {});
+}
 
 // Relay messages between content script and side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -67,21 +118,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_CAPTIONS") {
-    chrome.storage.session.get(["captions", "meetingId", "meetingTitle", "meetingUrl"], (data) => {
+    chrome.storage.session.get(["captions", "meetingId", "meetingTitle", "meetingUrl", "endTime"], (data) => {
       sendResponse({
         captions: data.captions || [],
         meetingId: data.meetingId || null,
         meetingTitle: data.meetingTitle || null,
         meetingUrl: data.meetingUrl || null,
+        endTime: data.endTime || null,
       });
     });
     return true;
   }
 
   if (message.type === "CLEAR_CAPTIONS") {
-    chrome.storage.session.set({ captions: [], meetingId: null });
+    chrome.storage.session.set({ captions: [], meetingId: null, endTime: null });
     sendResponse({ success: true });
     return true;
+  }
+
+  if (message.type === "MEETING_ENDED") {
+    // Content script detected meeting end — persist and relay
+    const endTime = message.endTime || Date.now();
+    chrome.storage.session.set({ endTime });
+
+    // Relay to side panel
+    chrome.runtime.sendMessage({
+      type: "MEETING_ENDED",
+      endTime,
+    }).catch(() => {});
+
+    // Track the meeting tab from the sender
+    if (sender?.tab?.id === meetingTabId) {
+      meetingTabId = null;
+    }
   }
 
   if (message.type === "MEETING_STARTED") {
@@ -89,11 +158,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Always update meeting metadata (title, URL, current meetingId).
     // NEVER clear captions — the user decides when to clear.
+    // Clear endTime so the timer starts ticking again for the new meeting.
     chrome.storage.session.set({
       meetingId: newMeetingId,
       meetingTitle: message.title || "Google Meet",
       meetingUrl: message.meetingUrl || "",
+      endTime: null,
     });
+
+    // Track the sender tab as the active meeting tab
+    if (sender?.tab?.id) {
+      meetingTabId = sender.tab.id;
+    }
 
     // Notify side panel so it can update the displayed meeting info
     chrome.runtime.sendMessage({

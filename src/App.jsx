@@ -31,6 +31,7 @@ function AppContent() {
     meetingTitle,
     meetingUrl,
     startTime,
+    endTime,
     hideMeetCaptions,
     clearCaptions,
     toggleMeetCaptions,
@@ -142,7 +143,7 @@ function AppContent() {
             newMessageCount={newMessageCount}
             onClick={handleScrollToBottom}
           />
-          <Footer captionCount={captions.length} startTime={startTime} />
+          <Footer captionCount={captions.length} startTime={startTime} endTime={endTime} />
         </>
       ) : (
         <Settings onBack={() => setView("captions")} onRequestConfirm={requestConfirm} />

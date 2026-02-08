@@ -10,6 +10,7 @@ export function useCaptions() {
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
   const [hideMeetCaptions, setHideMeetCaptions] = useState(false);
 
   // Speaker color tracking (refs — don't need re-render)
@@ -61,6 +62,7 @@ export function useCaptions() {
     if (!startTime) {
       setStartTime(captionData.timestamp);
     }
+    setEndTime(null); // New caption = meeting is active, clear any frozen timer
     setIsCapturing(true);
   }, [startTime]);
 
@@ -71,6 +73,7 @@ export function useCaptions() {
     setCaptions([]);
     setIsCapturing(false);
     setStartTime(null);
+    setEndTime(null);
     speakerColorsRef.current = {};
     speakerColorIndexRef.current = 0;
     setSpeakerAvatarUrls({});
@@ -110,10 +113,15 @@ export function useCaptions() {
             setMeetingTitle(response.meetingTitle || "");
             setMeetingUrl(response.meetingUrl || "");
 
+            // Restore endTime (frozen timer) if the meeting ended previously
+            if (response.endTime) {
+              setEndTime(response.endTime);
+            }
+
             if (response.captions && response.captions.length > 0) {
               setCaptions(response.captions);
               setStartTime(response.captions[0].timestamp);
-              setIsCapturing(true);
+              setIsCapturing(!response.endTime); // Not capturing if meeting already ended
 
               // Restore speaker colors and avatars
               const avatarMap = {};
@@ -155,6 +163,15 @@ export function useCaptions() {
         // Captions are only cleared when the user explicitly clicks "Clear All".
         setMeetingTitle(message.title || "");
         setMeetingUrl(message.meetingUrl || "");
+        // New meeting started → clear endTime so timer ticks again
+        setEndTime(null);
+        setIsCapturing(true);
+      }
+
+      if (message.type === MESSAGE_TYPES.MEETING_ENDED) {
+        // Meeting ended — freeze the timer and stop the capturing indicator
+        setEndTime(message.endTime || Date.now());
+        setIsCapturing(false);
       }
     };
 
@@ -172,6 +189,7 @@ export function useCaptions() {
     meetingTitle,
     meetingUrl,
     startTime,
+    endTime,
     hideMeetCaptions,
     clearCaptions,
     toggleMeetCaptions,
