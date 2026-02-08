@@ -1,6 +1,9 @@
 // Background service worker for Meet - Live Captions
 //
-// Uses captionId to update captions in place instead of stacking duplicates.
+// KEY DESIGN: Captions persist across meeting changes and URL navigation.
+// They are only cleared when the user explicitly clicks "Clear All".
+// To avoid captionId collisions between meetings, each caption gets a
+// composite ID: `meetingId_originalCaptionId`.
 
 // Open side panel when extension icon is clicked
 chrome.action.onClicked.addListener(async (tab) => {
@@ -21,30 +24,46 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // Relay messages between content script and side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "CAPTION_UPDATE") {
-    const captionId = message.captionId;
+    // Build a composite captionId to avoid collisions across meetings.
+    // The content script resets its counter for each new page/meeting,
+    // so raw captionIds (1, 2, 3…) would overwrite previous meeting data.
+    const meetingId = message.meetingId || "unknown";
+    const compositeCaptionId = `${meetingId}_${message.captionId}`;
+
+    // Attach the composite ID to the data payload
+    const captionData = {
+      ...message.data,
+      captionId: compositeCaptionId,
+    };
 
     chrome.storage.session.get(["captions", "meetingId"], (data) => {
       const captions = data.captions || [];
 
-      // Find existing caption with same captionId
-      const existingIdx = captions.findIndex(c => c.captionId === captionId);
+      // Find existing caption with same composite captionId
+      const existingIdx = captions.findIndex(c => c.captionId === compositeCaptionId);
 
       if (existingIdx >= 0) {
         // UPDATE existing entry in place
-        captions[existingIdx] = message.data;
+        captions[existingIdx] = captionData;
       } else {
-        // NEW entry
-        captions.push(message.data);
+        // NEW entry — append
+        captions.push(captionData);
       }
 
       chrome.storage.session.set({
         captions,
-        meetingId: message.meetingId || data.meetingId || generateMeetingId(),
+        meetingId: meetingId,
       });
     });
 
-    // Forward to side panel
-    chrome.runtime.sendMessage(message).catch(() => {});
+    // Forward to side panel using a RELAY type so the side panel can
+    // distinguish it from the raw content-script message (which also
+    // arrives via chrome.runtime.onMessage to all extension pages).
+    chrome.runtime.sendMessage({
+      type: "CAPTION_UPDATE_RELAY",
+      captionId: compositeCaptionId,
+      data: captionData,
+    }).catch(() => {});
   }
 
   if (message.type === "GET_CAPTIONS") {
@@ -60,7 +79,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "CLEAR_CAPTIONS") {
-    chrome.storage.session.set({ captions: [], meetingId: generateMeetingId() });
+    chrome.storage.session.set({ captions: [], meetingId: null });
     sendResponse({ success: true });
     return true;
   }
@@ -68,36 +87,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "MEETING_STARTED") {
     const newMeetingId = message.meetingId || generateMeetingId();
 
-    chrome.storage.session.get(["meetingId"], (data) => {
-      const oldMeetingId = data.meetingId;
-
-      if (oldMeetingId && oldMeetingId !== newMeetingId) {
-        // Meeting changed — clear old captions
-        chrome.storage.session.set({
-          meetingId: newMeetingId,
-          meetingTitle: message.title || "Google Meet",
-          meetingUrl: message.meetingUrl || "",
-          captions: [],
-        });
-
-        // Notify side panel to reset
-        chrome.runtime.sendMessage({
-          type: "MEETING_CHANGED",
-          meetingId: newMeetingId,
-          title: message.title || "Google Meet",
-          meetingUrl: message.meetingUrl || "",
-        }).catch(() => {});
-      } else if (!oldMeetingId) {
-        // First meeting — initialize
-        chrome.storage.session.set({
-          meetingId: newMeetingId,
-          meetingTitle: message.title || "Google Meet",
-          meetingUrl: message.meetingUrl || "",
-          captions: [],
-        });
-      }
-      // If same meetingId, do nothing (page refresh — keep captions)
+    // Always update meeting metadata (title, URL, current meetingId).
+    // NEVER clear captions — the user decides when to clear.
+    chrome.storage.session.set({
+      meetingId: newMeetingId,
+      meetingTitle: message.title || "Google Meet",
+      meetingUrl: message.meetingUrl || "",
     });
+
+    // Notify side panel so it can update the displayed meeting info
+    chrome.runtime.sendMessage({
+      type: "MEETING_CHANGED",
+      meetingId: newMeetingId,
+      title: message.title || "Google Meet",
+      meetingUrl: message.meetingUrl || "",
+    }).catch(() => {});
   }
 
   if (message.type === "TOGGLE_MEET_CAPTIONS") {

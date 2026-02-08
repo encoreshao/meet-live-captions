@@ -474,6 +474,33 @@
     return true;
   }
 
+  // Detect whether newText is a continuation of oldText (same utterance
+  // being extended word by word) vs a completely new sentence.
+  //
+  // Live captions grow like: "Hello" → "Hello world" → "Hello world, how"
+  // A new sentence looks like: "Hello world, how are you" → "Fine thank you"
+  //
+  // Heuristic: if the two texts share a common prefix that covers at least
+  // 30% of the shorter one (min 3 chars), it's a continuation.
+  function isContinuation(oldText, newText) {
+    if (!oldText || !newText) return false;
+
+    // One starts with the other → clearly a continuation
+    if (newText.startsWith(oldText) || oldText.startsWith(newText)) return true;
+
+    // Check common prefix length
+    const minLen = Math.min(oldText.length, newText.length);
+    const threshold = Math.max(3, Math.floor(minLen * 0.3));
+
+    let commonLen = 0;
+    for (let i = 0; i < minLen; i++) {
+      if (oldText[i] === newText[i]) commonLen++;
+      else break;
+    }
+
+    return commonLen >= threshold;
+  }
+
   function pollCaptions() {
     const region = getCaptionRegion();
     if (!region) return;
@@ -492,29 +519,40 @@
 
     // ---- Match current entries to previous entries ----
     // Three-pass algorithm to correctly reuse captionIds:
-    //   Pass 1: Same position + same speaker (most stable match)
-    //   Pass 2: Same speaker in any unused previous slot (handles shifts)
+    //   Pass 1: Same position + same speaker + continuation text
+    //   Pass 2: Same speaker + continuation text in any unused slot
     //   Pass 3: Assign new captionIds for genuinely new entries
+    //
+    // KEY: We only reuse a captionId if the text is a continuation of
+    // the previous text (same utterance growing word by word). If the
+    // text changed completely (new sentence), we assign a new captionId
+    // so the old message is kept as history in the side panel.
     const matchedCaptionIds = new Array(entries.length).fill(null);
     const usedPrev = new Set();
 
-    // Pass 1: Positional match (same index, same speaker)
+    // Pass 1: Positional match (same index, same speaker, text is continuation)
     for (let i = 0; i < entries.length; i++) {
       if (i < prevEntries.length && prevEntries[i].speaker === entries[i].speaker) {
-        matchedCaptionIds[i] = prevEntries[i].captionId;
-        usedPrev.add(i);
+        if (isContinuation(prevEntries[i].text, entries[i].text)) {
+          matchedCaptionIds[i] = prevEntries[i].captionId;
+          usedPrev.add(i);
+        }
+        // If text is completely different → leave unmatched → new captionId
       }
     }
 
-    // Pass 2: Speaker-name match for unmatched entries
+    // Pass 2: Speaker-name match for unmatched entries (text must be continuation)
     for (let i = 0; i < entries.length; i++) {
       if (matchedCaptionIds[i] != null) continue;
       for (let j = 0; j < prevEntries.length; j++) {
         if (usedPrev.has(j)) continue;
         if (prevEntries[j].speaker === entries[i].speaker) {
-          matchedCaptionIds[i] = prevEntries[j].captionId;
-          usedPrev.add(j);
-          break;
+          if (isContinuation(prevEntries[j].text, entries[i].text)) {
+            matchedCaptionIds[i] = prevEntries[j].captionId;
+            usedPrev.add(j);
+            break;
+          }
+          // Different text → don't reuse, let Pass 3 assign new ID
         }
       }
     }

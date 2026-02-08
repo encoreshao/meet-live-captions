@@ -142,20 +142,19 @@ export function useCaptions() {
     if (typeof chrome === "undefined" || !chrome?.runtime?.onMessage) return;
 
     const listener = (message) => {
-      if (message.type === MESSAGE_TYPES.CAPTION_UPDATE) {
+      // Listen for CAPTION_UPDATE_RELAY (sent by background with composite
+      // captionId), NOT the raw CAPTION_UPDATE from the content script.
+      // The content script's message also reaches the side panel, but it
+      // has a raw captionId that would cause duplicates.
+      if (message.type === "CAPTION_UPDATE_RELAY") {
         addOrUpdateCaption(message.data);
       }
 
       if (message.type === MESSAGE_TYPES.MEETING_CHANGED) {
-        // New meeting — reset everything
-        setCaptions([]);
-        setIsCapturing(false);
-        setStartTime(null);
+        // Meeting changed — only update metadata, keep all captions.
+        // Captions are only cleared when the user explicitly clicks "Clear All".
         setMeetingTitle(message.title || "");
         setMeetingUrl(message.meetingUrl || "");
-        speakerColorsRef.current = {};
-        speakerColorIndexRef.current = 0;
-        setSpeakerAvatarUrls({});
       }
     };
 
