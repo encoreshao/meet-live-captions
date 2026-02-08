@@ -18,6 +18,10 @@
   let lastEntries = []; // [{ speaker, text, captionId }]
   let nextCaptionId = 0;
 
+  // Speaker avatar cache: { "Speaker Name": "https://...image-url" }
+  let speakerAvatars = {};
+  let avatarScanTimer = null;
+
   function log(...args) {
     console.log("[MCP]", ...args);
   }
@@ -210,6 +214,132 @@
   function isJunk(text) {
     if (text.length <= 1) return true;
     return JUNK_TEXTS.has(text.toLowerCase().trim());
+  }
+
+  // ============================================
+  // Avatar Extraction — scan Meet DOM for profile images
+  //
+  // Google Meet shows profile images in several places:
+  //   1. Video tiles: img inside participant video containers
+  //   2. Participants panel: img elements with participant names nearby
+  //   3. Caption entries: sometimes small avatars next to speaker names
+  // We scan periodically and build a name → avatar URL map.
+  // ============================================
+  function scanForAvatars() {
+    // Strategy 1: Video tiles — profile images shown when camera is off
+    // These are typically large circular images with the person's photo
+    document.querySelectorAll('img[src*="googleusercontent.com"]').forEach((img) => {
+      const src = img.src;
+      if (!src || src.includes("icon") || img.width < 20) return;
+
+      // Look for a name near this image
+      const name = findNameNearImage(img);
+      if (name && !speakerAvatars[name]) {
+        speakerAvatars[name] = src;
+        log("Avatar found for:", name);
+      }
+    });
+
+    // Strategy 2: Participant list panel
+    // Each participant entry has an img and a name span
+    document.querySelectorAll('[data-participant-id]').forEach((el) => {
+      const img = el.querySelector('img[src*="googleusercontent.com"]');
+      if (!img) return;
+
+      // Find the participant name in the same container
+      const nameEl = el.querySelector('[data-self-name], [data-tooltip]');
+      const name = nameEl
+        ? (nameEl.getAttribute('data-self-name') || nameEl.getAttribute('data-tooltip') || nameEl.textContent || "").trim()
+        : "";
+
+      if (!name) {
+        // Fallback: look for text content that isn't an icon
+        const texts = [];
+        el.querySelectorAll('span').forEach((span) => {
+          const t = span.textContent.trim();
+          if (t.length > 1 && t.length < 50 && !isJunk(t)) texts.push(t);
+        });
+        const fallbackName = texts[0];
+        if (fallbackName && img.src && !speakerAvatars[fallbackName]) {
+          speakerAvatars[fallbackName] = img.src;
+          log("Avatar found (participant panel) for:", fallbackName);
+        }
+        return;
+      }
+
+      if (name && img.src && !speakerAvatars[name]) {
+        speakerAvatars[name] = img.src;
+        log("Avatar found (participant panel) for:", name);
+      }
+    });
+
+    // Strategy 3: Self-view — the local user's avatar
+    const selfView = document.querySelector('[data-self-name]');
+    if (selfView) {
+      const selfName = selfView.getAttribute('data-self-name');
+      if (selfName && !speakerAvatars[selfName]) {
+        const selfImg = selfView.closest('[data-participant-id]')?.querySelector('img[src*="googleusercontent.com"]')
+          || document.querySelector('img[data-iml][src*="googleusercontent.com"]');
+        if (selfImg && selfImg.src) {
+          speakerAvatars[selfName] = selfImg.src;
+          log("Avatar found (self) for:", selfName);
+        }
+      }
+    }
+  }
+
+  function findNameNearImage(img) {
+    // Walk up to find a container that also has text (the person's name)
+    let el = img.parentElement;
+    for (let i = 0; i < 5 && el; i++) {
+      // Look for a name label in a sibling or child
+      const nameEl = el.querySelector('[data-self-name]')
+        || el.querySelector('[data-tooltip]');
+      if (nameEl) {
+        const name = (nameEl.getAttribute('data-self-name')
+          || nameEl.getAttribute('data-tooltip')
+          || nameEl.textContent || "").trim();
+        if (name && name.length > 1 && name.length < 50) return name;
+      }
+
+      // Look for visible text spans near the image
+      const spans = el.querySelectorAll('span, div');
+      for (const span of spans) {
+        if (span.contains(img)) continue;
+        const t = span.textContent.trim();
+        if (t.length > 1 && t.length < 40 && !isJunk(t)) {
+          // Verify it looks like a name (not a button label or icon text)
+          const style = window.getComputedStyle(span);
+          const fs = parseFloat(style.fontSize);
+          if (fs >= 10 && fs <= 18) return t;
+        }
+      }
+
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function getAvatarForSpeaker(speaker) {
+    if (!speaker) return null;
+
+    // Exact match
+    if (speakerAvatars[speaker]) return speakerAvatars[speaker];
+
+    // Partial match (e.g. "John" matches "John Doe")
+    for (const [name, url] of Object.entries(speakerAvatars)) {
+      if (name.startsWith(speaker) || speaker.startsWith(name)) return url;
+    }
+
+    return null;
+  }
+
+  function startAvatarScanning() {
+    // Scan immediately, then periodically
+    scanForAvatars();
+    if (!avatarScanTimer) {
+      avatarScanTimer = setInterval(scanForAvatars, 5000);
+    }
   }
 
   // ============================================
@@ -412,6 +542,7 @@
 
       // Only send if text actually changed
       if (entry.text !== prevText) {
+        const avatarUrl = getAvatarForSpeaker(entry.speaker);
         try {
           chrome.runtime.sendMessage({
             type: "CAPTION_UPDATE",
@@ -421,6 +552,7 @@
               text: entry.text,
               timestamp: now,
               captionId: captionId,
+              avatarUrl: avatarUrl || null,
             },
             meetingId: meetingId,
           });
@@ -476,6 +608,7 @@
       });
     } catch (e) {}
 
+    startAvatarScanning();
     waitForCaptions();
   }
 
