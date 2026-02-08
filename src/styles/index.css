@@ -49,6 +49,12 @@
   --radius-lg: 12px;
   --radius-full: 9999px;
 
+  /* Toast */
+  --toast-bg: #1E293B;
+  --toast-text: #F1F5F9;
+  --toast-border: transparent;
+  --toast-icon: #22C55E;
+
   /* Transitions */
   --transition: 200ms ease-out;
 }
@@ -127,6 +133,45 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+/* Tooltip */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-text {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  z-index: 50;
+  animation: tooltipFadeIn 120ms ease-out;
+}
+
+.tooltip-text::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-bottom-color: var(--text);
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(2px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* Icon Buttons */
@@ -547,15 +592,19 @@ kbd {
   }
 }
 
-/* Download toast notification */
+/* Toast notification */
 .toast {
   position: fixed;
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%) translateY(20px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 16px;
-  background: var(--text);
-  color: white;
+  background: var(--toast-bg, #1E293B);
+  color: var(--toast-text, #F1F5F9);
+  border: 1px solid var(--toast-border, transparent);
   font-size: 13px;
   font-weight: 500;
   border-radius: var(--radius-full);
@@ -570,6 +619,13 @@ kbd {
 .toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+.toast-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--toast-icon, #22C55E);
 }
 
 /* ============================================
@@ -794,6 +850,11 @@ kbd {
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+
+  --toast-bg: #F1F5F9;
+  --toast-text: #1E293B;
+  --toast-border: #334155;
+  --toast-icon: #22C55E;
 }
 
 [data-theme="dark"] .settings-select {
@@ -874,4 +935,97 @@ kbd {
 
 [data-reduced-motion="true"] .captions-container {
   scroll-behavior: auto;
+}
+
+/* ============================================
+   Confirm Dialog
+   ============================================ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: confirmFadeIn 150ms ease-out;
+}
+
+@keyframes confirmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirm-dialog {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-xl);
+  margin: var(--space-lg);
+  max-width: 300px;
+  width: 100%;
+  animation: confirmSlideIn 150ms ease-out;
+}
+
+@keyframes confirmSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-message {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: 1px solid var(--border);
+}
+
+.confirm-btn-cancel {
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+
+.confirm-btn-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.confirm-btn-confirm {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.confirm-btn-confirm:hover {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+}
+
+.confirm-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

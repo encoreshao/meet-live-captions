@@ -4,12 +4,13 @@ import { useSettings } from "../hooks/useSettings";
 /**
  * Settings panel component with all configuration options
  */
-export default function Settings({ onBack }) {
+export default function Settings({ onBack, onRequestConfirm }) {
   const { settings, updateSetting, resetSettings } = useSettings();
 
   const handleReset = () => {
-    if (!confirm("Reset all settings to defaults?")) return;
-    resetSettings();
+    onRequestConfirm("Reset all settings to defaults?", () => {
+      resetSettings();
+    });
   };
 
   return (

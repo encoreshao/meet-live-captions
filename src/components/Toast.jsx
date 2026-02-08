@@ -1,21 +1,27 @@
-import React, { useEffect } from "react";
+import React from "react";
 
 /**
- * Toast notification component
+ * Toast notification component with success checkmark icon.
+ * Adapts colors automatically via CSS variables for light/dark themes.
  */
 export default function Toast({ message }) {
-  useEffect(() => {
-    if (!message) return;
-
-    // Auto-hide after animation completes
-    const timer = setTimeout(() => {
-      // Toast will be removed by parent when message becomes null
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [message]);
-
   if (!message) return null;
 
-  return <div className={`toast ${message ? "show" : ""}`}>{message}</div>;
+  return (
+    <div className="toast show">
+      <svg
+        className="toast-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      {message}
+    </div>
+  );
 }

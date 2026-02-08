@@ -59,11 +59,9 @@ export function useCaptions() {
     setIsCapturing(true);
   }, [startTime]);
 
-  // Clear all captions
+  // Clear all captions (caller handles confirmation)
   const clearCaptions = useCallback(() => {
     if (captions.length === 0) return;
-
-    if (!confirm("Clear all captured captions? This cannot be undone.")) return;
 
     setCaptions([]);
     setIsCapturing(false);

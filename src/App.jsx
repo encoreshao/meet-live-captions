@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { SettingsProvider, useSettings } from "./hooks/useSettings";
 import { useCaptions } from "./hooks/useCaptions";
 import { useToast } from "./hooks/useToast";
+import { useConfirm } from "./hooks/useConfirm";
 import { downloadTranscript } from "./utils/export";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
@@ -10,6 +11,7 @@ import ScrollToBottom from "./components/ScrollToBottom";
 import Footer from "./components/Footer";
 import Settings from "./components/Settings";
 import Toast from "./components/Toast";
+import ConfirmDialog from "./components/ConfirmDialog";
 
 /**
  * Main app component - manages view state and coordinates all components
@@ -36,6 +38,7 @@ function AppContent() {
     speakerAvatarUrls,
   } = useCaptions();
   const { toast, showToast } = useToast();
+  const { confirmState, requestConfirm, closeConfirm } = useConfirm();
 
   // Apply auto-scroll setting
   useEffect(() => {
@@ -100,9 +103,12 @@ function AppContent() {
   }, [captions, settings, meetingTitle, meetingUrl, startTime, showToast]);
 
   const handleClear = useCallback(() => {
-    clearCaptions();
-    showToast("Captions cleared");
-  }, [clearCaptions, showToast]);
+    if (captions.length === 0) return;
+    requestConfirm("Clear all captured captions? This cannot be undone.", () => {
+      clearCaptions();
+      showToast("Captions cleared");
+    });
+  }, [captions.length, requestConfirm, clearCaptions, showToast]);
 
   const handleSettingsClick = useCallback(() => {
     setView((prev) => (prev === "settings" ? "captions" : "settings"));
@@ -112,6 +118,7 @@ function AppContent() {
     <>
       <Header
         isCapturing={isCapturing}
+        hasCaptions={captions.length > 0}
         onSettingsClick={handleSettingsClick}
         onHideCaptionsClick={toggleMeetCaptions}
         hideMeetCaptions={hideMeetCaptions}
@@ -138,10 +145,16 @@ function AppContent() {
           <Footer captionCount={captions.length} startTime={startTime} />
         </>
       ) : (
-        <Settings onBack={() => setView("captions")} />
+        <Settings onBack={() => setView("captions")} onRequestConfirm={requestConfirm} />
       )}
 
       <Toast message={toast} />
+      <ConfirmDialog
+        open={confirmState.open}
+        message={confirmState.message}
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   );
 }
