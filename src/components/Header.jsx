@@ -9,6 +9,7 @@ export default function Header({
   isCapturing,
   hasCaptions,
   onSettingsClick,
+  onChatClick,
   onHideCaptionsClick,
   hideMeetCaptions,
   onDownloadClick,
@@ -33,6 +34,30 @@ export default function Header({
           <h1 className="header-title">Meet Captions</h1>
         </div>
         <div className="header-actions">
+          {/* AI Chat — always visible */}
+          <Tooltip text="AI Assistant">
+            <button
+              className="icon-btn"
+              onClick={onChatClick}
+              aria-label="AI Assistant"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4z" />
+                <rect x="8" y="8" width="8" height="8" rx="1" />
+                <path d="M8 12H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h3M16 12h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3" />
+                <path d="M10 16v4M14 16v4M9 20h6" />
+              </svg>
+            </button>
+          </Tooltip>
+
           {/* Settings — always visible */}
           <Tooltip text="Settings">
             <button

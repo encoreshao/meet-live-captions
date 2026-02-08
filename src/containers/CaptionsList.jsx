@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
-import CaptionMessage from "./CaptionMessage";
-import EmptyState from "./EmptyState";
+import CaptionMessage from "../components/CaptionMessage";
+import EmptyState from "../components/EmptyState";
 
 /**
  * Scrollable captions list with auto-scroll support

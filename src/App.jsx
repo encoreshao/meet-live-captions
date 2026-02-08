@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { SettingsProvider, useSettings } from "./hooks/useSettings";
 import { useCaptions } from "./hooks/useCaptions";
+import { useAIChat } from "./hooks/useAIChat";
 import { useToast } from "./hooks/useToast";
 import { useConfirm } from "./hooks/useConfirm";
 import { downloadTranscript } from "./utils/export";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
-import CaptionsList from "./components/CaptionsList";
+import CaptionsList from "./containers/CaptionsList";
 import ScrollToBottom from "./components/ScrollToBottom";
 import Footer from "./components/Footer";
-import Settings from "./components/Settings";
+import Settings from "./containers/Settings";
+import AIChat from "./containers/AIChat";
 import Toast from "./components/Toast";
 import ConfirmDialog from "./components/ConfirmDialog";
 
@@ -17,7 +19,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
  * Main app component - manages view state and coordinates all components
  */
 function AppContent() {
-  const [view, setView] = useState("captions"); // "captions" | "settings"
+  const [view, setView] = useState("captions"); // "captions" | "settings" | "chat"
   const [searchQuery, setSearchQuery] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
@@ -38,6 +40,7 @@ function AppContent() {
     getSpeakerColor,
     speakerAvatarUrls,
   } = useCaptions();
+  const aiChat = useAIChat(settings, captions);
   const { toast, showToast } = useToast();
   const { confirmState, requestConfirm, closeConfirm } = useConfirm();
 
@@ -115,12 +118,17 @@ function AppContent() {
     setView((prev) => (prev === "settings" ? "captions" : "settings"));
   }, []);
 
+  const handleChatClick = useCallback(() => {
+    setView((prev) => (prev === "chat" ? "captions" : "chat"));
+  }, []);
+
   return (
     <>
       <Header
         isCapturing={isCapturing}
         hasCaptions={captions.length > 0}
         onSettingsClick={handleSettingsClick}
+        onChatClick={handleChatClick}
         onHideCaptionsClick={toggleMeetCaptions}
         hideMeetCaptions={hideMeetCaptions}
         onDownloadClick={handleDownload}
@@ -145,6 +153,29 @@ function AppContent() {
           />
           <Footer captionCount={captions.length} startTime={startTime} endTime={endTime} />
         </>
+      ) : view === "chat" ? (
+        <AIChat
+          messages={aiChat.messages}
+          isLoading={aiChat.isLoading}
+          models={aiChat.models}
+          modelsLoading={aiChat.modelsLoading}
+          selectedProvider={aiChat.selectedProvider}
+          selectedModel={aiChat.selectedModel}
+          error={aiChat.error}
+          includeContext={aiChat.includeContext}
+          availableProviders={aiChat.availableProviders}
+          hasCaptions={captions.length > 0}
+          slackWebhookUrl={settings.slackWebhookUrl}
+          onSend={aiChat.sendMessage}
+          onStop={aiChat.stopStreaming}
+          onClear={aiChat.clearChat}
+          onProviderChange={aiChat.changeProvider}
+          onModelChange={aiChat.setSelectedModel}
+          onContextToggle={aiChat.setIncludeContext}
+          onRefreshModels={aiChat.refreshModels}
+          onBack={() => setView("captions")}
+          onShowToast={showToast}
+        />
       ) : (
         <Settings onBack={() => setView("captions")} onRequestConfirm={requestConfirm} />
       )}

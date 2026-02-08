@@ -15,6 +15,34 @@ export const SPEAKER_COLORS = [
   "#14B8A6", "#EF4444", "#6366F1", "#059669",
 ];
 
+// AI Provider configuration
+export const AI_PROVIDERS = {
+  openai: {
+    id: "openai",
+    name: "OpenAI",
+    settingsKey: "aiApiKeyOpenai",
+    placeholder: "sk-...",
+  },
+  claude: {
+    id: "claude",
+    name: "Claude",
+    settingsKey: "aiApiKeyClaude",
+    placeholder: "sk-ant-...",
+  },
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek",
+    settingsKey: "aiApiKeyDeepseek",
+    placeholder: "sk-...",
+  },
+  gemini: {
+    id: "gemini",
+    name: "Gemini",
+    settingsKey: "aiApiKeyGemini",
+    placeholder: "AIza...",
+  },
+};
+
 // Default settings (persisted in chrome.storage.local)
 export const SETTINGS_DEFAULTS = {
   theme: "auto",
@@ -33,4 +61,12 @@ export const SETTINGS_DEFAULTS = {
   clearOnEnd: false,
   highContrast: false,
   reducedMotion: false,
+  // AI Provider API keys
+  aiApiKeyOpenai: "",
+  aiApiKeyClaude: "",
+  aiApiKeyDeepseek: "",
+  aiApiKeyGemini: "",
+  // Slack integration
+  slackWebhookUrl: "",
+  slackChannelName: "",
 };
