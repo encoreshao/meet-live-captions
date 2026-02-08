@@ -8,6 +8,24 @@
  * Each provider has its own adapter for request/response format differences.
  */
 
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/** Only keep models created within the last 2 years, then cap at 20. */
+const MAX_MODELS = 20;
+const TWO_YEARS_AGO = Math.floor(Date.now() / 1000) - 2 * 365 * 24 * 60 * 60;
+
+/** Exclude non-text-chat models (image, tts, audio, embedding, vision-only, etc.) */
+const EXCLUDED_KEYWORDS = [
+  "dall-e", "tts", "whisper", "embedding", "moderation",
+  "audio", "image", "vision", "realtime", "transcription",
+  "search", "instruct",
+];
+
+function isTextChatModel(id) {
+  const lower = id.toLowerCase();
+  return !EXCLUDED_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 // ─── Provider Adapters ───────────────────────────────────────────────
 
 const adapters = {
@@ -27,8 +45,12 @@ const adapters = {
       const prefixes = ["gpt-4", "gpt-3.5", "o1", "o3", "o4", "chatgpt"];
       return (data.data || [])
         .filter((m) => prefixes.some((p) => m.id.startsWith(p)))
-        .map((m) => ({ id: m.id, name: m.id }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .filter((m) => isTextChatModel(m.id))
+        .filter((m) => !m.created || m.created >= TWO_YEARS_AGO)
+        .map((m) => ({ id: m.id, name: m.id, created: m.created || 0 }))
+        .sort((a, b) => b.created - a.created)
+        .slice(0, MAX_MODELS)
+        .map(({ id, name }) => ({ id, name }));
     },
 
     buildBody(model, messages) {
@@ -64,8 +86,12 @@ const adapters = {
     filterModels(data) {
       return (data.data || [])
         .filter((m) => m.id.includes("claude"))
-        .map((m) => ({ id: m.id, name: m.id }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .filter((m) => isTextChatModel(m.id))
+        .filter((m) => !m.created_at || new Date(m.created_at).getTime() / 1000 >= TWO_YEARS_AGO)
+        .map((m) => ({ id: m.id, name: m.id, ts: m.created_at ? new Date(m.created_at).getTime() : 0 }))
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, MAX_MODELS)
+        .map(({ id, name }) => ({ id, name }));
     },
 
     buildBody(model, messages) {
@@ -105,8 +131,12 @@ const adapters = {
 
     filterModels(data) {
       return (data.data || [])
-        .map((m) => ({ id: m.id, name: m.id }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .filter((m) => isTextChatModel(m.id))
+        .filter((m) => !m.created || m.created >= TWO_YEARS_AGO)
+        .map((m) => ({ id: m.id, name: m.id, created: m.created || 0 }))
+        .sort((a, b) => b.created - a.created)
+        .slice(0, MAX_MODELS)
+        .map(({ id, name }) => ({ id, name }));
     },
 
     buildBody(model, messages) {
@@ -145,11 +175,12 @@ const adapters = {
         .filter((m) =>
           m.supportedGenerationMethods?.includes("generateContent")
         )
+        .filter((m) => isTextChatModel(m.name))
         .map((m) => ({
           id: m.name.replace("models/", ""),
           name: m.displayName || m.name.replace("models/", ""),
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .slice(0, MAX_MODELS);
     },
 
     buildBody(_model, messages) {

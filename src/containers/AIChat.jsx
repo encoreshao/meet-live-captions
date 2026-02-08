@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Tooltip from "../components/Tooltip";
 
 /**
  * AI Chat component — ChatGPT-style interface with provider/model selection,
@@ -62,6 +63,14 @@ export default function AIChat({
     },
     [handleSubmit]
   );
+
+  // Auto-grow textarea height whenever input changes
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [input]);
 
   // Quick prompt → auto-send immediately
   const handleQuickPrompt = useCallback(
@@ -127,8 +136,9 @@ export default function AIChat({
         <div className="ai-chat-empty">
           <div className="ai-chat-empty-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              <path d="M8 10h.01M12 10h.01M16 10h.01" />
+              <path d="M12 3c0 4.5-4.5 9-9 9 4.5 0 9 4.5 9 9 0-4.5 4.5-9 9-9-4.5 0-9-4.5-9-9z" />
+              <path d="M20 2v4" />
+              <path d="M18 4h4" />
             </svg>
           </div>
           <p className="ai-chat-empty-title">No API Keys Configured</p>
@@ -259,25 +269,7 @@ export default function AIChat({
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`ai-chat-message ai-chat-message-${msg.role}`}>
-              <div className="ai-chat-message-avatar">
-                {msg.role === "user" ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4z" />
-                    <rect x="8" y="8" width="8" height="8" rx="1" />
-                    <path d="M8 12H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h3M16 12h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3" />
-                    <path d="M10 16v4M14 16v4M9 20h6" />
-                  </svg>
-                )}
-              </div>
               <div className="ai-chat-message-content">
-                <div className="ai-chat-message-role">
-                  {msg.role === "user" ? "You" : "AI"}
-                </div>
                 <div className="ai-chat-message-text">
                   {msg.role === "assistant" && msg.content ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -291,39 +283,45 @@ export default function AIChat({
                     </span>
                   ) : null}
                 </div>
-                {/* Action buttons for assistant messages with content */}
+                {/* Action icons for assistant messages with content */}
                 {msg.role === "assistant" && msg.content && (
                   <div className="ai-chat-actions">
-                    <button
-                      className={`ai-chat-action-btn ${copiedId === msg.id ? "ai-chat-action-btn-active" : ""}`}
-                      onClick={() => handleCopy(msg)}
-                      title="Copy to clipboard"
-                    >
-                      {copiedId === msg.id ? (
+                    <Tooltip text={copiedId === msg.id ? "Copied!" : "Copy"}>
+                      <button
+                        className={`ai-chat-action-btn ${copiedId === msg.id ? "ai-chat-action-btn-active" : ""}`}
+                        onClick={() => handleCopy(msg)}
+                        aria-label="Copy to clipboard"
+                      >
+                        {copiedId === msg.id ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        )}
+                      </button>
+                    </Tooltip>
+                    <Tooltip text={slackWebhookUrl ? "Send to Slack" : "Configure Slack in Settings"}>
+                      <button
+                        className="ai-chat-action-btn"
+                        onClick={() => handleSlack(msg)}
+                        aria-label="Send to Slack"
+                      >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
+                          <rect x="13" y="2" width="3" height="8" rx="1.5" />
+                          <path d="M19 8.5A1.5 1.5 0 0 1 17.5 10H16" />
+                          <rect x="8" y="14" width="3" height="8" rx="1.5" />
+                          <path d="M5 15.5A1.5 1.5 0 0 1 6.5 14H8" />
+                          <rect x="14" y="13" width="8" height="3" rx="1.5" />
+                          <path d="M15.5 19A1.5 1.5 0 0 1 14 17.5V16" />
+                          <rect x="2" y="8" width="8" height="3" rx="1.5" />
+                          <path d="M8.5 5A1.5 1.5 0 0 1 10 6.5V8" />
                         </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                      )}
-                      <span>{copiedId === msg.id ? "Copied" : "Copy"}</span>
-                    </button>
-                    <button
-                      className="ai-chat-action-btn"
-                      onClick={() => handleSlack(msg)}
-                      title={slackWebhookUrl ? "Send to Slack" : "Configure Slack in Settings"}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14.5 2a2.5 2.5 0 0 0 0 5H17V4.5A2.5 2.5 0 0 0 14.5 2z" />
-                        <path d="M7 5.5A2.5 2.5 0 0 0 9.5 8H12V5.5A2.5 2.5 0 0 0 9.5 3 2.5 2.5 0 0 0 7 5.5z" />
-                        <path d="M17 9.5A2.5 2.5 0 0 0 14.5 12H12V9.5a2.5 2.5 0 0 1 5 0z" />
-                        <path d="M7 14.5A2.5 2.5 0 0 0 9.5 17V19.5A2.5 2.5 0 0 0 12 17h0a2.5 2.5 0 0 0-2.5-2.5H7z" />
-                      </svg>
-                      <span>Slack</span>
-                    </button>
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
               </div>

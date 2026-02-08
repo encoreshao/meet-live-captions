@@ -50,10 +50,9 @@ export default function Header({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4z" />
-                <rect x="8" y="8" width="8" height="8" rx="1" />
-                <path d="M8 12H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h3M16 12h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-3" />
-                <path d="M10 16v4M14 16v4M9 20h6" />
+                <path d="M12 3c0 4.5-4.5 9-9 9 4.5 0 9 4.5 9 9 0-4.5 4.5-9 9-9-4.5 0-9-4.5-9-9z" />
+                <path d="M20 2v4" />
+                <path d="M18 4h4" />
               </svg>
             </button>
           </Tooltip>
