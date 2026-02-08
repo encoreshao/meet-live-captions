@@ -12,10 +12,12 @@ export function useCaptions() {
   const [startTime, setStartTime] = useState(null);
   const [hideMeetCaptions, setHideMeetCaptions] = useState(false);
 
-  // Speaker color and avatar tracking
+  // Speaker color tracking (refs — don't need re-render)
   const speakerColorsRef = useRef({});
   const speakerColorIndexRef = useRef(0);
-  const speakerAvatarUrlsRef = useRef({});
+
+  // Avatar URLs as state — triggers re-render when new avatars are discovered
+  const [speakerAvatarUrls, setSpeakerAvatarUrls] = useState({});
 
   // Get consistent color for a speaker
   const getSpeakerColor = useCallback((speaker) => {
@@ -48,9 +50,12 @@ export function useCaptions() {
       }
     });
 
-    // Track avatar URL
+    // Track avatar URL — update state so React re-renders with the image
     if (captionData.avatarUrl) {
-      speakerAvatarUrlsRef.current[captionData.speaker] = captionData.avatarUrl;
+      setSpeakerAvatarUrls((prev) => {
+        if (prev[captionData.speaker] === captionData.avatarUrl) return prev;
+        return { ...prev, [captionData.speaker]: captionData.avatarUrl };
+      });
     }
 
     if (!startTime) {
@@ -68,7 +73,7 @@ export function useCaptions() {
     setStartTime(null);
     speakerColorsRef.current = {};
     speakerColorIndexRef.current = 0;
-    speakerAvatarUrlsRef.current = {};
+    setSpeakerAvatarUrls({});
 
     if (typeof chrome !== "undefined" && chrome?.runtime?.sendMessage) {
       try {
@@ -111,14 +116,18 @@ export function useCaptions() {
               setIsCapturing(true);
 
               // Restore speaker colors and avatars
+              const avatarMap = {};
               response.captions.forEach((caption) => {
                 if (caption.speaker) {
                   getSpeakerColor(caption.speaker);
                 }
                 if (caption.avatarUrl) {
-                  speakerAvatarUrlsRef.current[caption.speaker] = caption.avatarUrl;
+                  avatarMap[caption.speaker] = caption.avatarUrl;
                 }
               });
+              if (Object.keys(avatarMap).length > 0) {
+                setSpeakerAvatarUrls(avatarMap);
+              }
             }
           }
         });
@@ -146,7 +155,7 @@ export function useCaptions() {
         setMeetingUrl(message.meetingUrl || "");
         speakerColorsRef.current = {};
         speakerColorIndexRef.current = 0;
-        speakerAvatarUrlsRef.current = {};
+        setSpeakerAvatarUrls({});
       }
     };
 
@@ -168,6 +177,6 @@ export function useCaptions() {
     clearCaptions,
     toggleMeetCaptions,
     getSpeakerColor,
-    speakerAvatarUrls: speakerAvatarUrlsRef.current,
+    speakerAvatarUrls,
   };
 }
