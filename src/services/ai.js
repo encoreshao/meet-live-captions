@@ -18,7 +18,7 @@ const TWO_YEARS_AGO = Math.floor(Date.now() / 1000) - 2 * 365 * 24 * 60 * 60;
 const EXCLUDED_KEYWORDS = [
   "dall-e", "tts", "whisper", "embedding", "moderation",
   "audio", "image", "vision", "realtime", "transcription",
-  "search", "instruct",
+  "search", "instruct", "transcribe", "nano",
 ];
 
 function isTextChatModel(id) {
