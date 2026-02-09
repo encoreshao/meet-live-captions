@@ -4,7 +4,7 @@ import { useCaptions } from "./hooks/useCaptions";
 import { useAIChat } from "./hooks/useAIChat";
 import { useToast } from "./hooks/useToast";
 import { useConfirm } from "./hooks/useConfirm";
-import { downloadTranscript } from "./utils/export";
+import { downloadTranscript, parseTranscript } from "./utils/export";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
 import CaptionsList from "./containers/CaptionsList";
@@ -25,17 +25,20 @@ function AppContent() {
   const [newMessageCount, setNewMessageCount] = useState(0);
   const captionsListRef = useRef(null);
   const prevCaptionsLengthRef = useRef(0);
+  const fileInputRef = useRef(null);
 
   const { settings } = useSettings();
   const {
     captions,
     isCapturing,
+    isImported,
     meetingTitle,
     meetingUrl,
     startTime,
     endTime,
     hideMeetCaptions,
     clearCaptions,
+    restoreCaptions,
     toggleMeetCaptions,
     getSpeakerColor,
     speakerAvatarUrls,
@@ -106,6 +109,60 @@ function AppContent() {
     }
   }, [captions, settings, meetingTitle, meetingUrl, startTime, showToast]);
 
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Reset input so the same file can be re-selected
+      e.target.value = "";
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const { captions: parsed, meta } = parseTranscript(
+            event.target.result,
+            file.name
+          );
+
+          if (parsed.length === 0) {
+            showToast("No captions found in file");
+            return;
+          }
+
+          const doRestore = () => {
+            restoreCaptions(parsed, meta);
+            setView("captions");
+            showToast(`Restored ${parsed.length} captions`);
+          };
+
+          if (captions.length > 0) {
+            requestConfirm(
+              "Replace current captions with imported data? This cannot be undone.",
+              doRestore
+            );
+          } else {
+            doRestore();
+          }
+        } catch (error) {
+          console.error("Failed to parse transcript:", error);
+          showToast(error.message || "Failed to parse file");
+        }
+      };
+
+      reader.onerror = () => {
+        showToast("Failed to read file");
+      };
+
+      reader.readAsText(file);
+    },
+    [captions.length, restoreCaptions, requestConfirm, showToast]
+  );
+
   const handleClear = useCallback(() => {
     if (captions.length === 0) return;
     requestConfirm("Clear all captured captions? This cannot be undone.", () => {
@@ -127,12 +184,21 @@ function AppContent() {
       <Header
         isCapturing={isCapturing}
         hasCaptions={captions.length > 0}
+        isImported={isImported}
         onSettingsClick={handleSettingsClick}
         onChatClick={handleChatClick}
         onHideCaptionsClick={toggleMeetCaptions}
         hideMeetCaptions={hideMeetCaptions}
         onDownloadClick={handleDownload}
+        onUploadClick={handleUploadClick}
         onClearClick={handleClear}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,.txt,.srt"
+        style={{ display: "none" }}
+        onChange={handleFileChange}
       />
 
       {view === "captions" ? (

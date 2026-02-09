@@ -136,6 +136,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "RESTORE_CAPTIONS") {
+    // Replace current captions with imported data
+    chrome.storage.session.set({
+      captions: message.captions || [],
+      meetingId: message.meetingId || `imported_${Date.now()}`,
+      meetingTitle: message.meetingTitle || "Imported Transcript",
+      meetingUrl: message.meetingUrl || "",
+      endTime: Date.now(), // Mark as ended (not live)
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (message.type === "MEETING_ENDED") {
     // Content script detected meeting end — persist and relay
     const endTime = message.endTime || Date.now();

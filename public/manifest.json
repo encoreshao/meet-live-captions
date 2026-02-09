@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Google Meet - Live Captions",
   "version": "1.0.0",
-  "description": "Capture Google Meet live captions in a side panel. Review and download full conversation transcripts in real-time.",
+  "description": "Capture Google Meet live captions in a side panel. Review, search, download, and re-upload transcripts in real-time — with a built-in AI assistant.",
   "permissions": [
     "sidePanel",
     "storage",

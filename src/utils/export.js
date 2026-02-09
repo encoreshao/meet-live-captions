@@ -1,6 +1,179 @@
 import { formatTime, formatDuration, formatSrtTime } from "./format";
 
 /**
+ * Parse an uploaded transcript file back into captions data.
+ * Supports JSON, SRT, and TXT formats exported by this extension.
+ * @param {string} content - Raw file content
+ * @param {string} filename - Original filename (used to detect format)
+ * @returns {{ captions: Array, meta: Object }} Parsed captions and meeting metadata
+ */
+export function parseTranscript(content, filename) {
+  const ext = filename.split(".").pop().toLowerCase();
+
+  if (ext === "json") {
+    return parseJsonImport(content);
+  } else if (ext === "srt") {
+    return parseSrtImport(content);
+  } else {
+    return parseTxtImport(content);
+  }
+}
+
+function parseJsonImport(content) {
+  const data = JSON.parse(content);
+
+  if (!data.captions || !Array.isArray(data.captions)) {
+    throw new Error("Invalid JSON transcript: missing captions array");
+  }
+
+  const baseTimestamp = data.captions[0]?.timestamp || Date.now();
+  const captions = data.captions.map((c, i) => ({
+    captionId: `imported_${i}`,
+    text: c.text || "",
+    speaker: c.speaker || "Unknown",
+    timestamp: c.timestamp || baseTimestamp + i * 1000,
+  }));
+
+  return {
+    captions,
+    meta: {
+      meetingTitle: data.meetingTitle || "Imported Transcript",
+      meetingUrl: data.meetingUrl || "",
+      date: data.date || null,
+    },
+  };
+}
+
+function parseSrtImport(content) {
+  const blocks = content.trim().split(/\n\n+/);
+  const captions = [];
+  // Base timestamp: use current time minus total duration so the times make sense
+  const baseTimestamp = Date.now();
+
+  blocks.forEach((block, i) => {
+    const lines = block.split("\n");
+    if (lines.length < 3) return;
+
+    // Line 0: sequence number, Line 1: timecodes, Line 2+: text
+    const timecodeMatch = lines[1]?.match(
+      /(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/
+    );
+    if (!timecodeMatch) return;
+
+    const startMs =
+      parseInt(timecodeMatch[1]) * 3600000 +
+      parseInt(timecodeMatch[2]) * 60000 +
+      parseInt(timecodeMatch[3]) * 1000 +
+      parseInt(timecodeMatch[4]);
+
+    const textContent = lines.slice(2).join(" ").trim();
+    // Check for "Speaker: text" format
+    const speakerMatch = textContent.match(/^(.+?):\s+(.+)$/);
+
+    captions.push({
+      captionId: `imported_${i}`,
+      text: speakerMatch ? speakerMatch[2] : textContent,
+      speaker: speakerMatch ? speakerMatch[1] : "Unknown",
+      timestamp: baseTimestamp + startMs,
+    });
+  });
+
+  if (captions.length === 0) {
+    throw new Error("No captions found in SRT file");
+  }
+
+  return {
+    captions,
+    meta: {
+      meetingTitle: "Imported Transcript",
+      meetingUrl: "",
+    },
+  };
+}
+
+function parseTxtImport(content) {
+  const lines = content.split("\n");
+  const captions = [];
+  const baseTimestamp = Date.now();
+  let currentSpeaker = "Unknown";
+  let metaTitle = "Imported Transcript";
+  let metaUrl = "";
+  let inHeader = true;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Parse header section
+    if (inHeader) {
+      if (line.startsWith("Title: ")) {
+        metaTitle = line.slice(7).trim();
+        continue;
+      }
+      if (line.startsWith("Meeting: ")) {
+        metaUrl = line.slice(9).trim();
+        continue;
+      }
+      // End of header is after the second "===" line
+      if (line.startsWith("===") && i > 0) {
+        inHeader = false;
+        continue;
+      }
+      continue;
+    }
+
+    // Skip empty lines
+    if (!line.trim()) continue;
+
+    // Try to match "[HH:MM:SS] Speaker Name:" line
+    const speakerWithTimeMatch = line.match(/^\[(\d{1,2}:\d{2}:\d{2}\s*[AP]?M?)\]\s+(.+):$/);
+    if (speakerWithTimeMatch) {
+      currentSpeaker = speakerWithTimeMatch[2].trim();
+      continue;
+    }
+
+    // Try to match "Speaker Name:" line (no timestamp)
+    const speakerMatch = line.match(/^([^\s][^:]+):$/);
+    if (speakerMatch && !line.startsWith("  ")) {
+      currentSpeaker = speakerMatch[1].trim();
+      continue;
+    }
+
+    // Try to match caption text (indented with 2 spaces)
+    const captionWithTimeMatch = line.match(/^\[(\d{1,2}:\d{2}:\d{2}\s*[AP]?M?)\]\s+(.+)$/);
+    const textMatch = line.match(/^\s{2}(.+)$/);
+
+    if (textMatch) {
+      captions.push({
+        captionId: `imported_${captions.length}`,
+        text: textMatch[1].trim(),
+        speaker: currentSpeaker,
+        timestamp: baseTimestamp + captions.length * 1000,
+      });
+    } else if (captionWithTimeMatch) {
+      // Timestamp-prefixed text without speaker header (exportSpeakers=false)
+      captions.push({
+        captionId: `imported_${captions.length}`,
+        text: captionWithTimeMatch[2].trim(),
+        speaker: currentSpeaker,
+        timestamp: baseTimestamp + captions.length * 1000,
+      });
+    }
+  }
+
+  if (captions.length === 0) {
+    throw new Error("No captions found in TXT file");
+  }
+
+  return {
+    captions,
+    meta: {
+      meetingTitle: metaTitle,
+      meetingUrl: metaUrl,
+    },
+  };
+}
+
+/**
  * Generate and download a transcript file
  * @param {Array} captions - Array of { speaker, text, timestamp, captionId }
  * @param {Object} settings - Current settings object

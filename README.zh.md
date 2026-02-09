@@ -2,7 +2,7 @@
 
 [English](./README.md) | [中文](./README.zh.md)
 
-一个 Chrome 扩展，可在侧边栏中捕获 Google Meet 实时字幕。实时查看、搜索和下载完整对话记录——内置 AI 助手，助力会议洞察。
+一个 Chrome 扩展，可在侧边栏中捕获 Google Meet 实时字幕。实时查看、搜索、下载和重新上传完整对话记录——内置 AI 助手，助力会议洞察。
 
 ## 功能特性
 
@@ -17,6 +17,7 @@
 ### 搜索与导出
 - **全文搜索** — 通过即时防抖搜索筛选对话内容
 - **下载会议记录** — 以 TXT、SRT 或 JSON 格式导出完整对话，支持自定义选项
+- **上传会议记录** — 重新上传之前下载的会议记录文件（JSON、TXT 或 SRT），在查看器中恢复完整的会议历史
 - **隐藏 Meet 原生字幕覆盖层** — 切换 Meet 原生字幕覆盖层的显示，同时在侧边栏中继续捕获
 
 ### AI 助手
@@ -88,7 +89,7 @@ meet-live-captions/
 │   │   └── ai.js                  # 统一 AI API 服务（OpenAI/Claude/DeepSeek/Gemini）
 │   ├── utils/
 │   │   ├── format.js              # 时间格式化工具
-│   │   └── export.js              # 会议记录导出（TXT/SRT/JSON）
+│   │   └── export.js              # 会议记录导出与导入（TXT/SRT/JSON）
 │   ├── constants/
 │   │   └── index.js               # 共享常量、AI 供应商配置、默认值
 │   └── styles/
@@ -137,6 +138,7 @@ meet-live-captions/
           ──MEETING_ENDED──▶           ──MEETING_ENDED──▶
 侧边栏    ──GET_CAPTIONS────▶  后台  （返回存储的字幕）
           ──CLEAR_CAPTIONS──▶
+          ──RESTORE_CAPTIONS▶         （用导入的数据替换存储的字幕）
           ──TOGGLE_CAPTIONS─▶         ──TOGGLE_CAPTIONS──▶  内容脚本
 ```
 
@@ -202,6 +204,7 @@ npm run build && npm run preview
 |------|------|
 | AI 助手 | 打开 AI 聊天面板 |
 | 设置 | 打开设置面板 |
+| 上传 | 上传之前下载的会议记录以恢复会议历史 |
 | 眼睛 | 切换 Meet 原生字幕覆盖层的可见性 |
 | 下载 | 以配置的格式（TXT/SRT/JSON）导出会议记录 |
 | 垃圾桶 | 清除所有捕获的字幕 |

@@ -12,6 +12,7 @@ export function useCaptions() {
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [hideMeetCaptions, setHideMeetCaptions] = useState(false);
+  const [isImported, setIsImported] = useState(false);
 
   // Speaker color tracking (refs — don't need re-render)
   const speakerColorsRef = useRef({});
@@ -64,7 +65,44 @@ export function useCaptions() {
     }
     setEndTime(null); // New caption = meeting is active, clear any frozen timer
     setIsCapturing(true);
+    setIsImported(false); // Live captions override imported state
   }, [startTime]);
+
+  // Restore captions from an imported file
+  const restoreCaptions = useCallback((importedCaptions, meta) => {
+    // Replace local state
+    setCaptions(importedCaptions);
+    setMeetingTitle(meta.meetingTitle || "Imported Transcript");
+    setMeetingUrl(meta.meetingUrl || "");
+    setStartTime(importedCaptions[0]?.timestamp || Date.now());
+    setEndTime(Date.now()); // Mark as ended (not live)
+    setIsCapturing(false);
+    setIsImported(true);
+
+    // Reset speaker tracking and rebuild from imported data
+    speakerColorsRef.current = {};
+    speakerColorIndexRef.current = 0;
+    setSpeakerAvatarUrls({});
+    importedCaptions.forEach((caption) => {
+      if (caption.speaker) {
+        getSpeakerColor(caption.speaker);
+      }
+    });
+
+    // Persist to background storage
+    if (typeof chrome !== "undefined" && chrome?.runtime?.sendMessage) {
+      try {
+        chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.RESTORE_CAPTIONS,
+          captions: importedCaptions,
+          meetingTitle: meta.meetingTitle || "Imported Transcript",
+          meetingUrl: meta.meetingUrl || "",
+        });
+      } catch (error) {
+        console.error("Failed to send RESTORE_CAPTIONS:", error);
+      }
+    }
+  }, [getSpeakerColor]);
 
   // Clear all captions (caller handles confirmation)
   const clearCaptions = useCallback(() => {
@@ -72,6 +110,7 @@ export function useCaptions() {
 
     setCaptions([]);
     setIsCapturing(false);
+    setIsImported(false);
     setStartTime(null);
     setEndTime(null);
     speakerColorsRef.current = {};
@@ -186,12 +225,14 @@ export function useCaptions() {
   return {
     captions,
     isCapturing,
+    isImported,
     meetingTitle,
     meetingUrl,
     startTime,
     endTime,
     hideMeetCaptions,
     clearCaptions,
+    restoreCaptions,
     toggleMeetCaptions,
     getSpeakerColor,
     speakerAvatarUrls,

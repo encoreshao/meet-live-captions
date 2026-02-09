@@ -2,7 +2,7 @@
 
 [English](./README.md) | [中文](./README.zh.md)
 
-A Chrome extension that captures Google Meet live captions in a side panel. Review, search, and download full conversation transcripts in real-time — with a built-in AI assistant for meeting insights.
+A Chrome extension that captures Google Meet live captions in a side panel. Review, search, download, and re-upload transcripts in real-time — with a built-in AI assistant for meeting insights.
 
 ## Features
 
@@ -17,6 +17,7 @@ A Chrome extension that captures Google Meet live captions in a side panel. Revi
 ### Search & Export
 - **Full-text search** — Filter through the conversation with instant debounced search
 - **Download transcript** — Export the full conversation in TXT, SRT, or JSON formats with customizable options
+- **Upload transcript** — Re-upload a previously downloaded transcript file (JSON, TXT, or SRT) to restore the full meeting history in the viewer
 - **Hide Meet native caption overlay** — Toggle the native Meet caption overlay while still capturing in the side panel
 
 ### AI Assistant
@@ -88,7 +89,7 @@ meet-live-captions/
 │   │   └── ai.js                  # Unified AI API service (OpenAI/Claude/DeepSeek/Gemini)
 │   ├── utils/
 │   │   ├── format.js              # Time formatting utilities
-│   │   └── export.js              # Transcript export (TXT/SRT/JSON)
+│   │   └── export.js              # Transcript export & import (TXT/SRT/JSON)
 │   ├── constants/
 │   │   └── index.js               # Shared constants, AI provider configs, defaults
 │   └── styles/
@@ -137,6 +138,7 @@ Content Script  ──CAPTION_UPDATE──▶  Background  ──CAPTION_UPDATE_
                 ──MEETING_ENDED──▶               ──MEETING_ENDED──▶
 Side Panel      ──GET_CAPTIONS────▶  Background  (responds with stored captions)
                 ──CLEAR_CAPTIONS──▶
+                ──RESTORE_CAPTIONS▶              (replaces stored captions with imported data)
                 ──TOGGLE_CAPTIONS─▶              ──TOGGLE_CAPTIONS──▶  Content Script
 ```
 
@@ -202,6 +204,7 @@ Note: Chrome extension APIs (`chrome.*`) are only available when loaded as an ex
 |--------|--------|
 | AI Assistant | Open the AI chat panel |
 | Settings | Open settings panel |
+| Upload | Upload a previously downloaded transcript to restore meeting history |
 | Eye | Toggle visibility of Meet's native caption overlay |
 | Download | Export transcript in the configured format (TXT/SRT/JSON) |
 | Trash | Clear all captured captions |

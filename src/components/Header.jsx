@@ -8,11 +8,13 @@ import Tooltip from "./Tooltip";
 export default function Header({
   isCapturing,
   hasCaptions,
+  isImported,
   onSettingsClick,
   onChatClick,
   onHideCaptionsClick,
   hideMeetCaptions,
   onDownloadClick,
+  onUploadClick,
   onClearClick,
 }) {
   return (
@@ -79,8 +81,31 @@ export default function Header({
             </button>
           </Tooltip>
 
-          {/* Hide / Download / Clear — only visible when captions exist */}
-          {hasCaptions && (
+          {/* Upload — always visible so user can restore from empty state */}
+          <Tooltip text="Upload transcript">
+            <button
+              className="icon-btn"
+              onClick={onUploadClick}
+              aria-label="Upload transcript"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </button>
+          </Tooltip>
+
+          {/* Hide overlay / Download — only when live captions exist (not imported) */}
+          {hasCaptions && !isImported && (
             <>
               <Tooltip text={hideMeetCaptions ? "Show Meet overlay" : "Hide Meet overlay"}>
                 <button
@@ -124,28 +149,31 @@ export default function Header({
                   </svg>
                 </button>
               </Tooltip>
-
-              <Tooltip text="Clear all captions">
-                <button
-                  className="icon-btn icon-btn-danger"
-                  onClick={onClearClick}
-                  aria-label="Clear all captions"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </button>
-              </Tooltip>
             </>
+          )}
+
+          {/* Clear — visible whenever captions exist (live or imported) */}
+          {hasCaptions && (
+            <Tooltip text="Clear all captions">
+              <button
+                className="icon-btn icon-btn-danger"
+                onClick={onClearClick}
+                aria-label="Clear all captions"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
