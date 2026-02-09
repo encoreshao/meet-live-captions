@@ -18,7 +18,8 @@ const TWO_YEARS_AGO = Math.floor(Date.now() / 1000) - 2 * 365 * 24 * 60 * 60;
 const EXCLUDED_KEYWORDS = [
   "dall-e", "tts", "whisper", "embedding", "moderation",
   "audio", "image", "vision", "realtime", "transcription",
-  "search", "instruct", "transcribe", "nano",
+  "search", "instruct", "transcribe", "nano", "codex",
+  "sora", "deep-research",
 ];
 
 function isTextChatModel(id) {
@@ -42,12 +43,16 @@ const adapters = {
     },
 
     filterModels(data) {
-      const prefixes = ["gpt-4", "gpt-3.5", "o1", "o3", "o4", "chatgpt"];
+      // Use owned_by === "system" to pick up all latest official models
+      // (gpt-5, gpt-4.1, o3, o4, etc.) without maintaining a prefix list.
       return (data.data || [])
-        .filter((m) => prefixes.some((p) => m.id.startsWith(p)))
+        .filter((m) => m.owned_by === "system")
         .filter((m) => isTextChatModel(m.id))
-        .filter((m) => !m.created || m.created >= TWO_YEARS_AGO)
-        .map((m) => ({ id: m.id, name: m.id, created: m.created || 0 }))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          created: m.created || 0,
+        }))
         .sort((a, b) => b.created - a.created)
         .slice(0, MAX_MODELS)
         .map(({ id, name }) => ({ id, name }));
@@ -88,7 +93,11 @@ const adapters = {
         .filter((m) => m.id.includes("claude"))
         .filter((m) => isTextChatModel(m.id))
         .filter((m) => !m.created_at || new Date(m.created_at).getTime() / 1000 >= TWO_YEARS_AGO)
-        .map((m) => ({ id: m.id, name: m.id, ts: m.created_at ? new Date(m.created_at).getTime() : 0 }))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          ts: m.created_at ? new Date(m.created_at).getTime() : 0,
+        }))
         .sort((a, b) => b.ts - a.ts)
         .slice(0, MAX_MODELS)
         .map(({ id, name }) => ({ id, name }));
@@ -133,7 +142,11 @@ const adapters = {
       return (data.data || [])
         .filter((m) => isTextChatModel(m.id))
         .filter((m) => !m.created || m.created >= TWO_YEARS_AGO)
-        .map((m) => ({ id: m.id, name: m.id, created: m.created || 0 }))
+        .map((m) => ({
+          id: m.id,
+          name: m.id,
+          created: m.created || 0,
+        }))
         .sort((a, b) => b.created - a.created)
         .slice(0, MAX_MODELS)
         .map(({ id, name }) => ({ id, name }));
@@ -214,6 +227,49 @@ const adapters = {
 };
 
 // ─── Public API ──────────────────────────────────────────────────────
+
+/**
+ * Quick connectivity test for a provider API key.
+ * Tries to fetch models — if it succeeds, the key is valid.
+ * @param {string} providerId - "openai" | "claude" | "deepseek" | "gemini"
+ * @param {string} apiKey - API key to test
+ * @returns {Promise<{ ok: boolean, models: number, error?: string }>}
+ */
+export async function testApiKey(providerId, apiKey) {
+  try {
+    const models = await fetchModels(providerId, apiKey);
+    return { ok: true, models: models.length };
+  } catch (err) {
+    return { ok: false, models: 0, error: err.message };
+  }
+}
+
+/**
+ * Test a Slack Incoming Webhook by sending a test message.
+ * @param {string} webhookUrl - Slack webhook URL
+ * @returns {Promise<{ ok: boolean, error?: string }>}
+ */
+export async function testSlackWebhook(webhookUrl) {
+  if (!webhookUrl?.trim()) return { ok: false, error: "Webhook URL is required" };
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: "Meet Captions — Slack integration test successful!",
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Slack returned ${res.status}: ${body}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
 
 /**
  * Fetch available models for a provider.
