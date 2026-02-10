@@ -7,8 +7,16 @@
     "sidePanel",
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "__GOOGLE_CLIENT_ID__",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
   "host_permissions": [
     "*://meet.google.com/*",
     "https://api.openai.com/*",

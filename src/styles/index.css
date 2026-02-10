@@ -1433,6 +1433,185 @@ kbd {
 }
 
 /* ============================================
+   Account — Google Auth Card
+   ============================================ */
+
+.account-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.account-loading .spinning {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Signed-in card ───────────────────────── */
+
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-tertiary, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+[data-theme="dark"] .account-card {
+  background: var(--bg-tertiary, #1e1e1e);
+  border-color: var(--border, #333);
+}
+
+.account-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.account-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .account-name {
+  color: var(--text-primary, #f3f4f6);
+}
+
+.account-email {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Sign-out button ─────────────────────── */
+
+.account-signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: transparent;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.account-signout-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: #ef4444;
+}
+
+.account-signout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .account-signout-btn {
+  border-color: var(--border, #444);
+}
+
+/* ── Sign-in button ──────────────────────── */
+
+.account-signin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.account-signin-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.account-signin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-signin-btn svg {
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .account-signin-btn {
+  background: #2a2a2a;
+  color: #f3f4f6;
+  border-color: #444;
+}
+
+[data-theme="dark"] .account-signin-btn:hover:not(:disabled) {
+  background: #333;
+}
+
+/* ── Error & session note ────────────────── */
+
+.account-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+
+.account-session-note {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ============================================
    AI Chat — Full Layout
    ============================================ */
 .ai-chat {

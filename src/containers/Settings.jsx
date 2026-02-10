@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useSettings } from "../hooks/useSettings";
+import SettingsAccount from "./settings/SettingsAccount";
 import SettingsGeneral from "./settings/SettingsGeneral";
 import SettingsIntegrations from "./settings/SettingsIntegrations";
 
@@ -9,7 +10,7 @@ import SettingsIntegrations from "./settings/SettingsIntegrations";
  */
 export default function Settings({ onBack, onRequestConfirm }) {
   const { settings, updateSetting, resetSettings } = useSettings();
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState("account");
 
   const handleReset = () => {
     onRequestConfirm("Reset all settings to defaults?", () => {
@@ -31,6 +32,16 @@ export default function Settings({ onBack, onRequestConfirm }) {
 
       {/* Tabs */}
       <div className="settings-tabs">
+        <button
+          className={`settings-tab ${activeTab === "account" ? "settings-tab-active" : ""}`}
+          onClick={() => setActiveTab("account")}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          Account
+        </button>
         <button
           className={`settings-tab ${activeTab === "general" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("general")}
@@ -55,7 +66,9 @@ export default function Settings({ onBack, onRequestConfirm }) {
 
       {/* Tab content */}
       <div className="settings-body">
-        {activeTab === "general" ? (
+        {activeTab === "account" ? (
+          <SettingsAccount />
+        ) : activeTab === "general" ? (
           <SettingsGeneral
             settings={settings}
             updateSetting={updateSetting}

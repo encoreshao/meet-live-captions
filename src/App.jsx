@@ -222,7 +222,7 @@ function AppContent() {
             speakerAvatarUrls={speakerAvatarUrls}
           />
           <ScrollToBottom
-            showTop={!isNearTop}
+            showTop={!autoScroll && !isNearTop}
             showBottom={!autoScroll}
             newMessageCount={newMessageCount}
             onTop={handleScrollToTop}
