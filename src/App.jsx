@@ -22,6 +22,7 @@ function AppContent() {
   const [view, setView] = useState("captions"); // "captions" | "settings" | "chat"
   const [searchQuery, setSearchQuery] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
+  const [isNearTop, setIsNearTop] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const captionsListRef = useRef(null);
   const prevCaptionsLengthRef = useRef(0);
@@ -77,8 +78,9 @@ function AppContent() {
     prevCaptionsLengthRef.current = captions.length;
   }, [captions.length, autoScroll]);
 
-  const handleScrollChange = useCallback((isAutoScrolling) => {
+  const handleScrollChange = useCallback((isAutoScrolling, nearTop) => {
     setAutoScroll(isAutoScrolling);
+    setIsNearTop(nearTop);
     if (isAutoScrolling) {
       setNewMessageCount(0);
     }
@@ -90,6 +92,12 @@ function AppContent() {
     }
     setAutoScroll(true);
     setNewMessageCount(0);
+  }, []);
+
+  const handleScrollToTop = useCallback(() => {
+    if (captionsListRef.current) {
+      captionsListRef.current.scrollToTop();
+    }
   }, []);
 
   const handleDownload = useCallback(() => {
@@ -214,8 +222,11 @@ function AppContent() {
             speakerAvatarUrls={speakerAvatarUrls}
           />
           <ScrollToBottom
+            showTop={!isNearTop}
+            showBottom={!autoScroll}
             newMessageCount={newMessageCount}
-            onClick={handleScrollToBottom}
+            onTop={handleScrollToTop}
+            onBottom={handleScrollToBottom}
           />
           <Footer captionCount={captions.length} startTime={startTime} endTime={endTime} />
         </>

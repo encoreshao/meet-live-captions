@@ -19,13 +19,20 @@ const CaptionsList = forwardRef(function CaptionsList(
   const containerRef = useRef(null);
   const isUserScrollingRef = useRef(false);
 
-  // Expose scrollToBottom method via ref
+  // Expose scrollToBottom and scrollToTop methods via ref
   useImperativeHandle(ref, () => ({
     scrollToBottom: () => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
         isUserScrollingRef.current = false;
-        onScrollChange(true);
+        onScrollChange(true, false);
+      }
+    },
+    scrollToTop: () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0;
+        isUserScrollingRef.current = true;
+        onScrollChange(false, true);
       }
     },
   }));
@@ -52,13 +59,14 @@ const CaptionsList = forwardRef(function CaptionsList(
 
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 60;
+    const isNearTop = scrollTop < 60;
 
     if (isNearBottom) {
       isUserScrollingRef.current = false;
-      onScrollChange(true);
+      onScrollChange(true, isNearTop);
     } else {
       isUserScrollingRef.current = true;
-      onScrollChange(false);
+      onScrollChange(false, isNearTop);
     }
   };
 
