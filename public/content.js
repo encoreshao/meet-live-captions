@@ -18,6 +18,13 @@
   let lastEntries = []; // [{ speaker, text, captionId }]
   let nextCaptionId = 0;
 
+  // Recent caption dedup buffer — prevents the same (speaker, text) from
+  // being sent as a brand-new entry when it reappears in the caption region
+  // at a different time (e.g. Meet scrollback or region rebuild).
+  // Map<normalizedKey, captionId>  where key = "speaker\0normalizedText"
+  const recentCaptionTexts = new Map();
+  const DEDUP_BUFFER_SIZE = 80;
+
   // Speaker avatar cache: { "Speaker Name": "https://...image-url" }
   let speakerAvatars = {};
   let avatarScanTimer = null;
@@ -474,27 +481,54 @@
     return true;
   }
 
+  // ============================================
+  // Text normalization for comparison
+  //
+  // Google Meet's ASR frequently changes:
+  //   - First-letter capitalization: "yeah, I was" ↔ "Yeah, I was"
+  //   - Trailing punctuation: "I," ↔ "I just"
+  //   - Inner commas/periods: "with, you know" ↔ "with you know"
+  //
+  // We normalize before comparing to avoid false negatives.
+  // ============================================
+  function normalizeForComparison(text) {
+    if (!text) return "";
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9'\s]/g, "")  // keep only letters, digits, apostrophes, spaces
+      .replace(/\s+/g, " ")           // collapse whitespace
+      .trim();
+  }
+
   // Detect whether newText is a continuation of oldText (same utterance
   // being extended word by word) vs a completely new sentence.
   //
   // Live captions grow like: "Hello" → "Hello world" → "Hello world, how"
   // A new sentence looks like: "Hello world, how are you" → "Fine thank you"
   //
-  // Heuristic: if the two texts share a common prefix that covers at least
-  // 30% of the shorter one (min 3 chars), it's a continuation.
+  // Compares normalized (lowercase, punctuation-stripped) versions to
+  // tolerate the frequent case/punctuation flips from Google Meet's ASR.
   function isContinuation(oldText, newText) {
     if (!oldText || !newText) return false;
 
+    const oldNorm = normalizeForComparison(oldText);
+    const newNorm = normalizeForComparison(newText);
+
+    if (!oldNorm || !newNorm) return false;
+
+    // Identical after normalization (only case/punctuation differ)
+    if (oldNorm === newNorm) return true;
+
     // One starts with the other → clearly a continuation
-    if (newText.startsWith(oldText) || oldText.startsWith(newText)) return true;
+    if (newNorm.startsWith(oldNorm) || oldNorm.startsWith(newNorm)) return true;
 
     // Check common prefix length
-    const minLen = Math.min(oldText.length, newText.length);
+    const minLen = Math.min(oldNorm.length, newNorm.length);
     const threshold = Math.max(3, Math.floor(minLen * 0.3));
 
     let commonLen = 0;
     for (let i = 0; i < minLen; i++) {
-      if (oldText[i] === newText[i]) commonLen++;
+      if (oldNorm[i] === newNorm[i]) commonLen++;
       else break;
     }
 
@@ -558,11 +592,23 @@
     }
 
     // Pass 3: New captionIds for truly new entries
+    // Before assigning a fresh ID, check the dedup buffer to avoid
+    // re-sending the exact same (speaker, text) that was already captured.
     for (let i = 0; i < entries.length; i++) {
       if (matchedCaptionIds[i] == null) {
-        nextCaptionId++;
-        matchedCaptionIds[i] = nextCaptionId;
-        log(`New turn #${nextCaptionId} [${entries[i].speaker}]: ${entries[i].text}`);
+        const normText = normalizeForComparison(entries[i].text);
+        const dedupKey = entries[i].speaker + "\0" + normText;
+
+        // If this exact text was recently sent for this speaker, reuse the
+        // old captionId so the side panel updates in place instead of adding
+        // a duplicate entry.
+        if (normText.length > 5 && recentCaptionTexts.has(dedupKey)) {
+          matchedCaptionIds[i] = recentCaptionTexts.get(dedupKey);
+        } else {
+          nextCaptionId++;
+          matchedCaptionIds[i] = nextCaptionId;
+          log(`New turn #${nextCaptionId} [${entries[i].speaker}]: ${entries[i].text}`);
+        }
       }
     }
 
@@ -595,6 +641,18 @@
             meetingId: meetingId,
           });
         } catch (e) {}
+
+        // Update dedup buffer
+        const normText = normalizeForComparison(entry.text);
+        if (normText.length > 5) {
+          const dedupKey = entry.speaker + "\0" + normText;
+          recentCaptionTexts.set(dedupKey, captionId);
+          // Evict oldest entries if buffer is full
+          if (recentCaptionTexts.size > DEDUP_BUFFER_SIZE) {
+            const firstKey = recentCaptionTexts.keys().next().value;
+            recentCaptionTexts.delete(firstKey);
+          }
+        }
       }
     }
 

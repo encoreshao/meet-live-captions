@@ -368,6 +368,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0;
+  padding-bottom: 5vh; /* Extra space so the latest message isn't stuck at the very bottom */
 }
 
 /* ============================================

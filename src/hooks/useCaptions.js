@@ -222,6 +222,89 @@ export function useCaptions() {
     };
   }, [addOrUpdateCaption]);
 
+  // ============================================================
+  // Backup sync via chrome.storage.session.onChanged
+  //
+  // When the user switches to another browser tab, Chrome may
+  // throttle or drop chrome.runtime.sendMessage broadcasts to
+  // extension pages (like this side panel). However,
+  // chrome.storage.session writes from the background still
+  // trigger onChanged reliably in all extension contexts.
+  //
+  // We use this as a fallback: whenever storage changes, we
+  // re-sync captions and metadata from storage, ensuring the
+  // side panel stays up-to-date even when the Meet tab is
+  // not the active tab.
+  // ============================================================
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome?.storage?.session?.onChanged) return;
+
+    const storageListener = (changes) => {
+      // Captions changed in storage — re-sync
+      if (changes.captions) {
+        const newCaptions = changes.captions.newValue || [];
+        if (newCaptions.length > 0) {
+          setCaptions(newCaptions);
+
+          // Update capturing state — if endTime not set, still capturing
+          if (!changes.endTime?.newValue) {
+            setIsCapturing(true);
+          }
+
+          // Update start time from first caption
+          if (!startTime && newCaptions[0]?.timestamp) {
+            setStartTime(newCaptions[0].timestamp);
+          }
+
+          // Rebuild speaker colors/avatars for any new speakers
+          const avatarMap = {};
+          newCaptions.forEach((caption) => {
+            if (caption.speaker) {
+              getSpeakerColor(caption.speaker);
+            }
+            if (caption.avatarUrl) {
+              avatarMap[caption.speaker] = caption.avatarUrl;
+            }
+          });
+          if (Object.keys(avatarMap).length > 0) {
+            setSpeakerAvatarUrls((prev) => {
+              const merged = { ...prev, ...avatarMap };
+              // Only update if something actually changed
+              const changed = Object.keys(avatarMap).some(k => prev[k] !== avatarMap[k]);
+              return changed ? merged : prev;
+            });
+          }
+        }
+      }
+
+      // Meeting metadata changed
+      if (changes.meetingTitle) {
+        setMeetingTitle(changes.meetingTitle.newValue || "");
+      }
+      if (changes.meetingUrl) {
+        setMeetingUrl(changes.meetingUrl.newValue || "");
+      }
+
+      // Meeting ended
+      if (changes.endTime && changes.endTime.newValue) {
+        setEndTime(changes.endTime.newValue);
+        setIsCapturing(false);
+      }
+      // Meeting started (endTime cleared)
+      if (changes.endTime && changes.endTime.newValue === null && changes.endTime.oldValue) {
+        setEndTime(null);
+        setIsCapturing(true);
+      }
+    };
+
+    chrome.storage.session.onChanged.addListener(storageListener);
+    return () => {
+      if (chrome?.storage?.session?.onChanged) {
+        chrome.storage.session.onChanged.removeListener(storageListener);
+      }
+    };
+  }, [getSpeakerColor, startTime]);
+
   return {
     captions,
     isCapturing,
