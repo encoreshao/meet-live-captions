@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ensureHostPermission } from "../services/ai";
 import Tooltip from "../components/Tooltip";
 
 /**
@@ -104,6 +105,7 @@ export default function AIChat({
         return;
       }
       try {
+        await ensureHostPermission(slackWebhookUrl);
         const res = await fetch(slackWebhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -8,6 +8,24 @@
  * Each provider has its own adapter for request/response format differences.
  */
 
+// ─── Host Permission Helper ─────────────────────────────────────────
+
+/**
+ * Ensure the extension has host permission for a given URL.
+ * AI provider and Slack URLs are declared as optional_host_permissions
+ * and requested on-demand the first time they're needed.
+ */
+export async function ensureHostPermission(url) {
+  if (typeof chrome === "undefined" || !chrome?.permissions) return; // dev mode
+
+  const origin = new URL(url).origin + "/*";
+  const granted = await chrome.permissions.contains({ origins: [origin] });
+  if (granted) return;
+
+  const ok = await chrome.permissions.request({ origins: [origin] });
+  if (!ok) throw new Error(`Permission denied for ${new URL(url).hostname}. Please grant access and try again.`);
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 /** Only keep models created within the last 2 years, then cap at 20. */
@@ -253,6 +271,8 @@ export async function testSlackWebhook(webhookUrl) {
   if (!webhookUrl?.trim()) return { ok: false, error: "Webhook URL is required" };
 
   try {
+    await ensureHostPermission(webhookUrl);
+
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -281,6 +301,8 @@ export async function fetchModels(providerId, apiKey) {
   const adapter = adapters[providerId];
   if (!adapter) throw new Error(`Unknown provider: ${providerId}`);
   if (!apiKey) throw new Error("API key is required");
+
+  await ensureHostPermission(adapter.modelsUrl);
 
   const res = await fetch(adapter.modelsUrl, {
     headers: adapter.headers(apiKey),
@@ -314,6 +336,8 @@ export async function streamChat(providerId, apiKey, model, messages, onChunk, s
   const url = typeof adapter.chatUrl === "function"
     ? adapter.chatUrl(model)
     : adapter.chatUrl;
+
+  await ensureHostPermission(url);
 
   const body = adapter.buildBody(model, messages);
 
