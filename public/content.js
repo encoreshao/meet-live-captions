@@ -500,6 +500,23 @@
       .trim();
   }
 
+  // Longest common subsequence length between two word-token arrays.
+  // Word-level (not character-level) so a single revised/inserted word
+  // doesn't desynchronize the alignment of everything after it.
+  function wordLcsLength(a, b) {
+    const n = a.length, m = b.length;
+    if (n === 0 || m === 0) return 0;
+    let prev = new Array(m + 1).fill(0);
+    for (let i = 1; i <= n; i++) {
+      const cur = new Array(m + 1).fill(0);
+      for (let j = 1; j <= m; j++) {
+        cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+      }
+      prev = cur;
+    }
+    return prev[m];
+  }
+
   // Detect whether newText is a continuation of oldText (same utterance
   // being extended word by word) vs a completely new sentence.
   //
@@ -508,6 +525,16 @@
   //
   // Compares normalized (lowercase, punctuation-stripped) versions to
   // tolerate the frequent case/punctuation flips from Google Meet's ASR.
+  //
+  // Google Meet's ASR also frequently rewrites a word NEAR THE START of an
+  // in-progress sentence (not just appends at the end), e.g.:
+  //   "No, we got it all. Uh, I agree with you, I."
+  //   → "No, we got at all, uh, I, I agree with you, I think, like. Um."
+  // A character-level common-prefix check breaks the instant that early
+  // word changes, even though the rest of the sentence obviously continues
+  // the same utterance — which caused the same utterance to be recorded as
+  // two separate captions. Comparing word-level longest-common-subsequence
+  // (LCS) tolerates a revised/inserted word anywhere in the sentence.
   function isContinuation(oldText, newText) {
     if (!oldText || !newText) return false;
 
@@ -522,17 +549,13 @@
     // One starts with the other → clearly a continuation
     if (newNorm.startsWith(oldNorm) || oldNorm.startsWith(newNorm)) return true;
 
-    // Check common prefix length
-    const minLen = Math.min(oldNorm.length, newNorm.length);
-    const threshold = Math.max(3, Math.floor(minLen * 0.3));
+    const oldWords = oldNorm.split(" ");
+    const newWords = newNorm.split(" ");
+    const minWords = Math.min(oldWords.length, newWords.length);
+    if (minWords < 2) return false; // too short to judge reliably by overlap
 
-    let commonLen = 0;
-    for (let i = 0; i < minLen; i++) {
-      if (oldNorm[i] === newNorm[i]) commonLen++;
-      else break;
-    }
-
-    return commonLen >= threshold;
+    const lcs = wordLcsLength(oldWords, newWords);
+    return lcs / minWords >= 0.6;
   }
 
   function pollCaptions() {
