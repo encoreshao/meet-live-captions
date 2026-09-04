@@ -2,6 +2,11 @@
 
 [English](./README.md) | [中文](./README.zh.md)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4.svg)](public/manifest.json)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](package.json)
+[![Vite 6](https://img.shields.io/badge/Vite-6-646CFF.svg?logo=vite)](package.json)
+
 A Chrome extension that captures Google Meet live captions in a side panel. Review, search, download, and re-upload transcripts in real-time — with a built-in AI assistant for meeting insights.
 
 ## Features
@@ -25,6 +30,29 @@ A Chrome extension that captures Google Meet live captions in a side panel. Revi
 ```
 Content Script (content.js)  ──▶  Background Service Worker (background.js)  ──▶  Side Panel (React)
         DOM caption extraction           Message routing & storage                    UI & state management
+```
+
+## Project Structure
+
+```
+meet-live-captions/
+├── public/
+│   ├── manifest.json      # Chrome extension manifest (v3)
+│   ├── content.js         # Injected into meet.google.com — extracts captions from the DOM
+│   ├── background.js      # Service worker — message routing & storage
+│   └── icons/             # Extension icons
+├── sidepanel.html          # Side panel entry point
+├── src/
+│   ├── App.jsx             # Root component
+│   ├── index.jsx           # React entry point
+│   ├── components/         # Presentational UI components
+│   ├── containers/         # Stateful views (captions list, AI chat, settings)
+│   ├── hooks/               # Custom hooks (captions, AI chat, auth, settings, toast)
+│   ├── services/            # AI provider API clients
+│   ├── constants/           # Shared constants (message types, providers, defaults)
+│   ├── utils/                # Export & formatting helpers
+│   └── styles/               # Global CSS
+└── vite.config.js          # Build configuration (React plugin, extension output)
 ```
 
 ## Getting Started
@@ -91,6 +119,21 @@ Add an API key in **Settings → Integrations**, then open the AI chat to ask qu
 | `activeTab` / `tabs` | Access Meet tabs and open side panel |
 | `identity` | Google OAuth2 sign-in |
 | `host_permissions` | Meet page access, AI provider APIs, Slack webhooks |
+
+## Contributing
+
+Contributions are welcome. To propose a change:
+
+1. Fork the repository and create a feature branch
+2. Make your changes and verify them with `npm run build` (and `npm run dev` for manual testing in Meet)
+3. Open a pull request describing the change and why it's needed
+
+Please keep pull requests focused — one feature or fix per PR — and avoid unrelated formatting changes.
+
+## Support
+
+- **Bugs & feature requests**: [open an issue](https://github.com/encoreshao/meet-live-captions/issues)
+- **Questions**: use [GitHub Discussions](https://github.com/encoreshao/meet-live-captions/discussions) or open an issue
 
 ## License
 

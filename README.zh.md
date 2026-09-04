@@ -2,6 +2,11 @@
 
 [English](./README.md) | [中文](./README.zh.md)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4.svg)](public/manifest.json)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](package.json)
+[![Vite 6](https://img.shields.io/badge/Vite-6-646CFF.svg?logo=vite)](package.json)
+
 一个 Chrome 扩展，可在侧边栏中捕获 Google Meet 实时字幕。实时查看、搜索、下载和重新上传完整对话记录——内置 AI 助手，助力会议洞察。
 
 ## 功能特性
@@ -25,6 +30,29 @@
 ```
 内容脚本 (content.js)  ──▶  后台 Service Worker (background.js)  ──▶  侧边栏 (React)
    DOM 字幕提取                    消息路由与存储                       UI 与状态管理
+```
+
+## 项目结构
+
+```
+meet-live-captions/
+├── public/
+│   ├── manifest.json      # Chrome 扩展清单（v3）
+│   ├── content.js         # 注入 meet.google.com——从 DOM 中提取字幕
+│   ├── background.js      # Service Worker——消息路由与存储
+│   └── icons/             # 扩展图标
+├── sidepanel.html          # 侧边栏入口页面
+├── src/
+│   ├── App.jsx             # 根组件
+│   ├── index.jsx           # React 入口
+│   ├── components/         # 展示型 UI 组件
+│   ├── containers/         # 有状态视图（字幕列表、AI 聊天、设置）
+│   ├── hooks/               # 自定义 Hook（字幕、AI 聊天、认证、设置、提示）
+│   ├── services/            # AI 供应商 API 客户端
+│   ├── constants/           # 共享常量（消息类型、供应商、默认值）
+│   ├── utils/                # 导出与格式化工具
+│   └── styles/               # 全局样式
+└── vite.config.js          # 构建配置（React 插件、扩展输出）
 ```
 
 ## 快速开始
@@ -91,6 +119,21 @@ npm run preview   # 预览生产构建
 | `activeTab` / `tabs` | 访问 Meet 标签页并打开侧边栏 |
 | `identity` | Google OAuth2 登录 |
 | `host_permissions` | Meet 页面访问、AI 供应商 API、Slack Webhook |
+
+## 参与贡献
+
+欢迎贡献代码。提交变更前请：
+
+1. Fork 仓库并创建功能分支
+2. 完成修改后使用 `npm run build` 验证构建（可用 `npm run dev` 在 Meet 中手动测试）
+3. 提交 Pull Request，说明变更内容及原因
+
+请保持每个 PR 聚焦单一功能或修复，并避免无关的格式改动。
+
+## 支持
+
+- **Bug 反馈与功能建议**：[提交 Issue](https://github.com/encoreshao/meet-live-captions/issues)
+- **问题咨询**：使用 [GitHub Discussions](https://github.com/encoreshao/meet-live-captions/discussions) 或提交 Issue
 
 ## 许可证
 
